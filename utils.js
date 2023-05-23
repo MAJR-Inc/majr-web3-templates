@@ -16,8 +16,7 @@ exports.getInfuraProvider = (type) => {
 exports.getAlchemyProvider = (type) => {
   if (type === "mainnet") {
     return new ethers.providers.JsonRpcProvider(
-      // `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
-      "https://polygon-rpc.com/"
+      `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
     );
   } else if (type === "testnet") {
     return new ethers.providers.JsonRpcProvider(
@@ -73,3 +72,13 @@ exports.getAbi = (type) => {
     );
   }
 };
+
+// This method returns the gas price in gwei. You can use it to set the manual gas price for transactions, especially when the network is congested.
+// One way to use it in order to get the faster transaction confirmations is to set the gas price to 1.5 times the returned gas price, or even 2 times the returned gas price in some cases.
+exports.getPolygonMainnetGasPrice = async () => {
+  const provider = this.getPublicProvider("mainnet");
+  const gasPrice = await provider.getGasPrice();
+  return ethers.utils.formatUnits(gasPrice, 9);
+};
+
+// Alternatively, you can get it through the API: https://api.polygonscan.com/api?module=proxy&action=eth_gasPrice

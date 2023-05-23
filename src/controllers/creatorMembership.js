@@ -1,3 +1,4 @@
+const { ethers } = require("ethers");
 const defaultContractMetadata = require("../../json/defaultContractMetadata.json");
 const {
   getAlchemyProvider,
@@ -5,12 +6,39 @@ const {
   getContract,
   toWei,
   toEther,
-  mainnetFactoryAddress,
   testnetFactoryAddress,
+  mainnetFactoryAddress,
   getAbi,
+  getPolygontestnetGasPrice,
 } = require("../../utils");
 
-function getDefaultContractMetadata(req, res) {
+// This is an example of how to manually set the gas price for a transaction (`setPrice` method is used for this example)
+async function manualGasPriceExample(req, res) {
+  try {
+    const { contractAddress, newPrice } = req.body;
+
+    const provider = getAlchemyProvider("testnet");
+    const majrAdminWallet = getMAJRWallet(provider);
+    const contract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+
+    const price = toWei(newPrice.toString());
+
+    const tx = await contract.connect(majrAdminWallet).setPrice(price, {
+      gasPrice: (await getPolygontestnetGasPrice()) * 1000000000, // Multiplied by 1 billion to convert from gwei to wei
+    });
+    await tx.wait(1);
+    return res.status(200).json(tx);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function getDefaultContractMetadata(req, res) {
   try {
     const { contractAddress } = req.params;
 
@@ -32,7 +60,7 @@ async function getDefaultTokenMetadata(req, res) {
     const membershipContract = getContract(
       contractAddress,
       getAbi("membership"),
-      getAlchemyProvider("mainnet")
+      getAlchemyProvider("testnet")
     );
 
     const tokenIdExists = await membershipContract.exists(tokenId);
@@ -77,9 +105,9 @@ async function getDefaultTokenMetadata(req, res) {
 
 async function getAllCreatorMembershipContracts(req, res) {
   try {
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const factory = getContract(
-      mainnetFactoryAddress,
+      testnetFactoryAddress,
       getAbi("factory"),
       provider
     );
@@ -113,9 +141,9 @@ async function getMembershipContractsOfCreator(req, res) {
 
 async function getMAJR(req, res) {
   try {
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const factory = getContract(
-      mainnetFactoryAddress,
+      testnetFactoryAddress,
       getAbi("factory"),
       provider
     );
@@ -129,9 +157,9 @@ async function getMAJR(req, res) {
 
 async function getDefaultBaseURI(req, res) {
   try {
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const factory = getContract(
-      mainnetFactoryAddress,
+      testnetFactoryAddress,
       getAbi("factory"),
       provider
     );
@@ -147,10 +175,10 @@ async function setMAJR(req, res) {
   try {
     const { newMAJRAddress } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const factory = getContract(
-      mainnetFactoryAddress,
+      testnetFactoryAddress,
       getAbi("factory"),
       provider
     );
@@ -168,10 +196,10 @@ async function setDefaultBaseURI(req, res) {
   try {
     const { newDefaultBaseURI } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const factory = getContract(
-      mainnetFactoryAddress,
+      testnetFactoryAddress,
       getAbi("factory"),
       provider
     );
@@ -233,7 +261,7 @@ async function getSymbol(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -251,7 +279,7 @@ async function getPaused(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -269,7 +297,7 @@ async function getPrice(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -288,7 +316,7 @@ async function getOwner(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -306,7 +334,7 @@ async function getMAJRAddress(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const factory = getContract(
       contractAddress,
       getAbi("membership"),
@@ -324,7 +352,7 @@ async function getSplitAddressesAndAmounts(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -332,7 +360,14 @@ async function getSplitAddressesAndAmounts(req, res) {
     );
     const splitAddressesAndAmounts =
       await contract.getSplitAddressesAndAmounts();
-    return res.status(200).json(splitAddressesAndAmounts);
+
+    const formattedSplitAmounts = splitAddressesAndAmounts[1].map((amount) =>
+      ethers.utils.formatUnits(amount, 2)
+    );
+
+    return res
+      .status(200)
+      .json([splitAddressesAndAmounts[0], formattedSplitAmounts]);
   } catch (error) {
     console.error(error);
     return res.status(500).json("Failed! Unexpected server error");
@@ -343,7 +378,7 @@ async function getReferralAddressesAndAmounts(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -351,7 +386,14 @@ async function getReferralAddressesAndAmounts(req, res) {
     );
     const referralAddressesAndAmounts =
       await contract.getReferralAddressesAndAmounts();
-    return res.status(200).json(referralAddressesAndAmounts);
+
+    const formattedReferralAmounts = referralAddressesAndAmounts[1].map(
+      (amount) => ethers.utils.formatUnits(amount, 2)
+    );
+
+    return res
+      .status(200)
+      .json([referralAddressesAndAmounts[0], formattedReferralAmounts]);
   } catch (error) {
     console.error(error);
     return res.status(500).json("Failed! Unexpected server error");
@@ -362,7 +404,7 @@ async function getExists(req, res) {
   try {
     const { contractAddress, tokenId } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -380,7 +422,7 @@ async function getTokenURI(req, res) {
   try {
     const { contractAddress, tokenId } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -398,7 +440,7 @@ async function getBaseURI(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -417,7 +459,7 @@ async function getContractURI(req, res) {
   try {
     const { contractAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -436,7 +478,7 @@ async function pause(req, res) {
   try {
     const { contractAddress } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -457,7 +499,7 @@ async function unpause(req, res) {
   try {
     const { contractAddress } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -478,7 +520,7 @@ async function setPrice(req, res) {
   try {
     const { contractAddress, newPrice } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -501,7 +543,7 @@ async function setBaseURI(req, res) {
   try {
     const { contractAddress, newBaseURI } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -522,7 +564,45 @@ async function setSplit(req, res) {
   try {
     const { contractAddress, newSplitAddresses, newSplitAmounts } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    if (newSplitAddresses.length !== newSplitAmounts.length) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message:
+          "The number of split addresses must be equal to the number of split amounts.",
+      });
+    }
+
+    const splitAmountsAreIntegers = newSplitAmounts.every(
+      (amount) => amount % 1 === 0
+    );
+
+    if (!splitAmountsAreIntegers) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message: "The split amounts must be integers.",
+      });
+    }
+
+    const splitAmountsSum = newSplitAmounts.reduce((a, b) => a + b, 0);
+
+    if (splitAmountsSum !== 10000) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message:
+          "The sum of the split amounts must be equal to 10000 basis points.",
+      });
+    }
+
+    for (const address of newSplitAddresses) {
+      if (address === ethers.constants.AddressZero) {
+        return res.status(400).json({
+          title: "Bad Request",
+          message: "The split addresses array cannot contain the zero address.",
+        });
+      }
+    }
+
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -546,7 +626,44 @@ async function setReferral(req, res) {
     const { contractAddress, newReferralAddresses, newReferralAmounts } =
       req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    if (newReferralAddresses.length !== newReferralAmounts.length) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message:
+          "The number of referral addresses must be equal to the number of referral amounts.",
+      });
+    }
+
+    const referralAmountsAreIntegers = newReferralAmounts.every(
+      (amount) => amount % 1 === 0
+    );
+
+    if (!referralAmountsAreIntegers) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message: "The referral amounts must be integers.",
+      });
+    }
+
+    const referralAmountsSum = newReferralAmounts.reduce((a, b) => a + b, 0);
+
+    if (referralAmountsSum !== 10000) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message:
+          "The sum of the referral amounts must be equal to 10000 basis points.",
+      });
+    }
+
+    if (!newReferralAddresses.includes(ethers.constants.AddressZero)) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message:
+          "The referral addresses array must contain the zero address. This is the address which the contract logic replaces with the address of the referrer when a user mints with a referrer.",
+      });
+    }
+
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -569,7 +686,7 @@ async function transferOwnership(req, res) {
   try {
     const { contractAddress, newOwner } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -592,7 +709,7 @@ async function renounceOwnership(req, res) {
   try {
     const { contractAddress } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -613,7 +730,7 @@ async function setMAJRAddress(req, res) {
   try {
     const { contractAddress, newMAJRAddress } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -621,9 +738,7 @@ async function setMAJRAddress(req, res) {
       provider
     );
 
-    const tx = await contract
-      .connect(majrAdminWallet)
-      .setMAJRAddress(newMAJRAddress);
+    const tx = await contract.connect(majrAdminWallet).setMAJR(newMAJRAddress);
     await tx.wait(1);
     return res.status(200).json(tx);
   } catch (error) {
@@ -635,7 +750,7 @@ async function mint(req, res) {
   try {
     const { contractAddress, to, quantity } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -643,7 +758,13 @@ async function mint(req, res) {
       provider
     );
 
-    const tx = await contract.connect(majrAdminWallet).mint(to, quantity);
+    const mintPrice = await contract.price();
+    const formattedMintPrice = toEther(mintPrice);
+    const fullMintPrice = formattedMintPrice * quantity;
+
+    const tx = await contract.connect(majrAdminWallet).mint(to, quantity, {
+      value: toWei(fullMintPrice.toString()),
+    });
     await tx.wait(1);
     return res.status(200).json(tx);
   } catch (error) {
@@ -656,7 +777,7 @@ async function mintWithReferrer(req, res) {
   try {
     const { contractAddress, to, quantity, referrer } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -664,9 +785,15 @@ async function mintWithReferrer(req, res) {
       provider
     );
 
+    const mintPrice = await contract.price();
+    const formattedMintPrice = toEther(mintPrice);
+    const fullMintPrice = formattedMintPrice * quantity;
+
     const tx = await contract
       .connect(majrAdminWallet)
-      .mintWithReferrer(to, quantity, referrer);
+      .mintWithReferrer(to, quantity, referrer, {
+        value: toWei(fullMintPrice.toString()),
+      });
     await tx.wait(1);
     return res.status(200).json(tx);
   } catch (error) {
@@ -679,7 +806,7 @@ async function burn(req, res) {
   try {
     const { contractAddress, tokenId } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -696,7 +823,66 @@ async function burn(req, res) {
   }
 }
 
+async function getOwnerOf(req, res) {
+  try {
+    const { contractAddress, tokenId } = req.params;
+
+    const provider = getAlchemyProvider("testnet");
+    const contract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+    const ownerOfNft = await contract.ownerOf(tokenId);
+    return res.status(200).json(ownerOfNft);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function getBalanceOf(req, res) {
+  try {
+    const { contractAddress, userAddress } = req.params;
+
+    const provider = getAlchemyProvider("testnet");
+    const contract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+    const balance = await contract.balanceOf(userAddress);
+    return res
+      .status(200)
+      .json(ethers.utils.formatUnits(balance, 0).toString());
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function getTotalSupply(req, res) {
+  try {
+    const { contractAddress } = req.params;
+
+    const provider = getAlchemyProvider("testnet");
+    const contract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+    const totalSupply = await contract.totalSupply();
+    return res
+      .status(200)
+      .json(ethers.utils.formatUnits(totalSupply, 0).toString());
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
 module.exports = {
+  manualGasPriceExample,
   getDefaultContractMetadata,
   getDefaultTokenMetadata,
   getAbi,
@@ -731,4 +917,7 @@ module.exports = {
   mintWithReferrer,
   burn,
   setMAJRAddress,
+  getOwnerOf,
+  getBalanceOf,
+  getTotalSupply,
 };

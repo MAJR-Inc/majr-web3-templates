@@ -2,16 +2,6 @@ const express = require("express");
 const router = express.Router();
 const creatorMembershipController = require("../controllers/creatorMembership");
 
-// http://localhost:3000/api/membership
-
-// Test Creator: 0x2cD3d676F4C53D645aa523cadBf00BA049f4E8eB
-
-// New Owner: 0x2e7b6533641b120e88bd9d97aa2d7fd0091cf32e
-
-// Test Membership Contract: 0x733e2d2C3B83604F4E629237689D9F4A26Ae250E
-
-// 0xb5bFa83A822aCd50D71b610cE0218013916f3495
-
 router.get(
   "/defaultMetadata/:contractAddress",
   creatorMembershipController.getDefaultContractMetadata
@@ -70,6 +60,18 @@ router.get("/baseURI/:contractAddress", creatorMembershipController.getBaseURI);
 router.get(
   "/contractURI/:contractAddress",
   creatorMembershipController.getContractURI
+);
+router.get(
+  "/ownerOf/:contractAddress/:tokenId",
+  creatorMembershipController.getOwnerOf
+);
+router.get(
+  "/balanceOf/:contractAddress/:userAddress",
+  creatorMembershipController.getBalanceOf
+);
+router.get(
+  "/totalSupply/:contractAddress",
+  creatorMembershipController.getTotalSupply
 );
 
 router.post("/pause", creatorMembershipController.pause);
