@@ -1,22 +1,76 @@
-const abis = require("../../abi.json");
+const defaultContractMetadata = require("../../json/defaultContractMetadata.json");
 const {
   getAlchemyProvider,
-  getWallet,
   getMAJRWallet,
   getContract,
   toWei,
+  toEther,
   mainnetFactoryAddress,
+  testnetFactoryAddress,
+  getAbi,
 } = require("../../utils");
 
-function getAbi(req, res) {
-  const { type } = req.body;
+function getDefaultContractMetadata(req, res) {
+  try {
+    const { contractAddress } = req.params;
 
-  if (type === "factory") {
-    return res.status(200).json(abis.factory);
-  } else if (type === "membership") {
-    return res.status(200).json(abis.membership);
-  } else {
-    console.error("Invalid contract type");
+    // Verify that the contractAddress is valid, i.e. that it is a contract address included in a database
+
+    return res.status(200).json(defaultContractMetadata);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function getDefaultTokenMetadata(req, res) {
+  try {
+    const { contractAddress, tokenId } = req.params;
+
+    // Verify that the contractAddress is valid, i.e. that it is a contract address included in a database
+
+    const membershipContract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      getAlchemyProvider("mainnet")
+    );
+
+    const tokenIdExists = await membershipContract.exists(tokenId);
+
+    if (!tokenIdExists) {
+      return res.status(404).json({
+        title: "Not Found",
+        message:
+          "The NFT you are looking for has not been minted yet or has been burned by its owner. Please try again with a different token ID.",
+      });
+    }
+
+    const name = await membershipContract.name();
+
+    const defaultTokenMetadata = {
+      name: `${name} #${tokenId}`,
+      description: "Membership Everything. Join. Share. Earn.",
+      external_url: `${process.env.BACKEND_URL_PROD}/membership/defaultMetadata/${contractAddress}/${tokenId}`,
+      image: `${process.env.DEFAULT_ART_URL}`,
+      attributes: [
+        {
+          trait_type: "Id",
+          value: tokenId,
+        },
+        {
+          trait_type: "Type",
+          value: "Standard Membership",
+        },
+        {
+          trait_type: "Payment Type",
+          value: "Subscription",
+        },
+      ],
+    };
+
+    return res.status(200).json(defaultTokenMetadata);
+  } catch (error) {
+    console.error(error);
     return res.status(500).json("Failed! Unexpected server error");
   }
 }
@@ -30,7 +84,7 @@ async function getAllCreatorMembershipContracts(req, res) {
       provider
     );
     const allContracts = await factory.getAllCreatorMembershipContracts();
-    return res.status(200).json(allContracts);
+    return res.status(200).json(allContracts[1]); // allContracts[0] is an array length
   } catch (error) {
     console.error(error);
     return res.status(500).json("Failed! Unexpected server error");
@@ -39,35 +93,80 @@ async function getAllCreatorMembershipContracts(req, res) {
 
 async function getMembershipContractsOfCreator(req, res) {
   try {
-    const { creatorAddress } = req.body;
+    const { creatorAddress } = req.params;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
     const factory = getContract(
-      mainnetFactoryAddress,
+      testnetFactoryAddress,
       getAbi("factory"),
       provider
     );
     const allContracts = await factory.getMembershipContractsOfCreator(
       creatorAddress
     );
-    return res.status(200).json(allContracts);
+    return res.status(200).json(allContracts[1]); // allContracts[0] is an array length
   } catch (error) {
     console.error(error);
     return res.status(500).json("Failed! Unexpected server error");
   }
 }
 
-async function createMembershipContract(req, res) {
+async function getMAJR(req, res) {
   try {
-    const {
-      creatorAddress,
-      name,
-      price,
-      splitAddresses,
-      splitAmounts,
-      referralAddresses,
-      referralAmounts,
-    } = req.body;
+    const provider = getAlchemyProvider("mainnet");
+    const factory = getContract(
+      mainnetFactoryAddress,
+      getAbi("factory"),
+      provider
+    );
+    const majrAddress = await factory.MAJR();
+    return res.status(200).json(majrAddress);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function getDefaultBaseURI(req, res) {
+  try {
+    const provider = getAlchemyProvider("mainnet");
+    const factory = getContract(
+      mainnetFactoryAddress,
+      getAbi("factory"),
+      provider
+    );
+    const defaultBaseURI = await factory.defaultBaseURI();
+    return res.status(200).json(defaultBaseURI);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function setMAJR(req, res) {
+  try {
+    const { newMAJRAddress } = req.body;
+
+    const provider = getAlchemyProvider("mainnet");
+    const majrAdminWallet = getMAJRWallet(provider);
+    const factory = getContract(
+      mainnetFactoryAddress,
+      getAbi("factory"),
+      provider
+    );
+
+    const tx = await factory.connect(majrAdminWallet).setMAJR(newMAJRAddress);
+    await tx.wait(1);
+    return res.status(200).json(tx);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function setDefaultBaseURI(req, res) {
+  try {
+    const { newDefaultBaseURI } = req.body;
 
     const provider = getAlchemyProvider("mainnet");
     const majrAdminWallet = getMAJRWallet(provider);
@@ -79,16 +178,7 @@ async function createMembershipContract(req, res) {
 
     const tx = await factory
       .connect(majrAdminWallet)
-      .createMembershipContract(
-        majrAdminWallet.address,
-        creatorAddress,
-        name,
-        toWei(price.toString()),
-        splitAddresses,
-        splitAmounts,
-        referralAddresses,
-        referralAmounts
-      );
+      .setDefaultBaseURI(newDefaultBaseURI);
     await tx.wait(1);
     return res.status(200).json(tx);
   } catch (error) {
@@ -97,11 +187,35 @@ async function createMembershipContract(req, res) {
   }
 }
 
-async function name(req, res) {
+async function createMembershipContract(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { creatorAddress, name, price } = req.body;
 
-    const provider = getAlchemyProvider("mainnet");
+    const provider = getAlchemyProvider("testnet");
+    const majrAdminWallet = getMAJRWallet(provider);
+    const factory = getContract(
+      testnetFactoryAddress,
+      getAbi("factory"),
+      provider
+    );
+
+    const newContractAddress = await factory
+      .connect(majrAdminWallet)
+      .createMembershipContract(creatorAddress, name, toWei(price.toString()));
+    return res.status(200).json({
+      newContractAddress,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function getName(req, res) {
+  try {
+    const { contractAddress } = req.params;
+
+    const provider = getAlchemyProvider("testnet");
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -115,9 +229,9 @@ async function name(req, res) {
   }
 }
 
-async function symbol(req, res) {
+async function getSymbol(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -133,9 +247,9 @@ async function symbol(req, res) {
   }
 }
 
-async function paused(req, res) {
+async function getPaused(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -151,9 +265,9 @@ async function paused(req, res) {
   }
 }
 
-async function price(req, res) {
+async function getPrice(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -162,16 +276,17 @@ async function price(req, res) {
       provider
     );
     const price = await contract.price();
-    return res.status(200).json(price);
+    const formattedPrice = toEther(price);
+    return res.status(200).json(formattedPrice);
   } catch (error) {
     console.error(error);
     return res.status(500).json("Failed! Unexpected server error");
   }
 }
 
-async function owner(req, res) {
+async function getOwner(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -187,9 +302,27 @@ async function owner(req, res) {
   }
 }
 
+async function getMAJRAddress(req, res) {
+  try {
+    const { contractAddress } = req.params;
+
+    const provider = getAlchemyProvider("mainnet");
+    const factory = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+    const majrAddress = await factory.MAJR();
+    return res.status(200).json(majrAddress);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
 async function getSplitAddressesAndAmounts(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -208,7 +341,7 @@ async function getSplitAddressesAndAmounts(req, res) {
 
 async function getReferralAddressesAndAmounts(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -225,9 +358,9 @@ async function getReferralAddressesAndAmounts(req, res) {
   }
 }
 
-async function exists(req, res) {
+async function getExists(req, res) {
   try {
-    const { contractAddress, tokenId } = req.body;
+    const { contractAddress, tokenId } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -243,9 +376,9 @@ async function exists(req, res) {
   }
 }
 
-async function tokenURI(req, res) {
+async function getTokenURI(req, res) {
   try {
-    const { contractAddress, tokenId } = req.body;
+    const { contractAddress, tokenId } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -261,9 +394,9 @@ async function tokenURI(req, res) {
   }
 }
 
-async function baseURI(req, res) {
+async function getBaseURI(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -280,9 +413,9 @@ async function baseURI(req, res) {
   }
 }
 
-async function contractMetadataURI(req, res) {
+async function getContractURI(req, res) {
   try {
-    const { contractAddress } = req.body;
+    const { contractAddress } = req.params;
 
     const provider = getAlchemyProvider("mainnet");
     const contract = getContract(
@@ -476,19 +609,41 @@ async function renounceOwnership(req, res) {
   }
 }
 
-async function mint(req, res) {
+async function setMAJRAddress(req, res) {
   try {
-    const { contractAddress, privateKey, to, quantity } = req.body;
+    const { contractAddress, newMAJRAddress } = req.body;
 
     const provider = getAlchemyProvider("mainnet");
-    const wallet = getWallet(privateKey, provider);
+    const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
       provider
     );
 
-    const tx = await contract.connect(wallet).mint(to, quantity);
+    const tx = await contract
+      .connect(majrAdminWallet)
+      .setMAJRAddress(newMAJRAddress);
+    await tx.wait(1);
+    return res.status(200).json(tx);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function mint(req, res) {
+  try {
+    const { contractAddress, to, quantity } = req.body;
+
+    const provider = getAlchemyProvider("mainnet");
+    const majrAdminWallet = getMAJRWallet(provider);
+    const contract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+
+    const tx = await contract.connect(majrAdminWallet).mint(to, quantity);
     await tx.wait(1);
     return res.status(200).json(tx);
   } catch (error) {
@@ -499,10 +654,10 @@ async function mint(req, res) {
 
 async function mintWithReferrer(req, res) {
   try {
-    const { contractAddress, privateKey, to, quantity, referrer } = req.body;
+    const { contractAddress, to, quantity, referrer } = req.body;
 
     const provider = getAlchemyProvider("mainnet");
-    const wallet = getWallet(privateKey, provider);
+    const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
@@ -510,7 +665,7 @@ async function mintWithReferrer(req, res) {
     );
 
     const tx = await contract
-      .connect(wallet)
+      .connect(majrAdminWallet)
       .mintWithReferrer(to, quantity, referrer);
     await tx.wait(1);
     return res.status(200).json(tx);
@@ -522,17 +677,17 @@ async function mintWithReferrer(req, res) {
 
 async function burn(req, res) {
   try {
-    const { contractAddress, privateKey, tokenId } = req.body;
+    const { contractAddress, tokenId } = req.body;
 
     const provider = getAlchemyProvider("mainnet");
-    const wallet = getWallet(privateKey, provider);
+    const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
       getAbi("membership"),
       provider
     );
 
-    const tx = await contract.connect(wallet).burn(tokenId);
+    const tx = await contract.connect(majrAdminWallet).burn(tokenId);
     await tx.wait(1);
     return res.status(200).json(tx);
   } catch (error) {
@@ -542,21 +697,28 @@ async function burn(req, res) {
 }
 
 module.exports = {
+  getDefaultContractMetadata,
+  getDefaultTokenMetadata,
   getAbi,
   getAllCreatorMembershipContracts,
   getMembershipContractsOfCreator,
+  getMAJR,
+  getDefaultBaseURI,
+  setMAJR,
+  setDefaultBaseURI,
   createMembershipContract,
-  name,
-  symbol,
-  paused,
-  price,
-  owner,
+  getName,
+  getSymbol,
+  getPaused,
+  getPrice,
+  getOwner,
+  getMAJRAddress,
   getSplitAddressesAndAmounts,
   getReferralAddressesAndAmounts,
-  exists,
-  tokenURI,
-  baseURI,
-  contractMetadataURI,
+  getExists,
+  getTokenURI,
+  getBaseURI,
+  getContractURI,
   pause,
   unpause,
   setPrice,
@@ -568,4 +730,5 @@ module.exports = {
   mint,
   mintWithReferrer,
   burn,
+  setMAJRAddress,
 };

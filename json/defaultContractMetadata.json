@@ -1,0 +1,8 @@
+{
+  "name": "MAJR Creators",
+  "description": "Membership Everything. Join. Share. Earn.",
+  "image": "https://ipfs.io/ipfs/bafkreidrotyusm7mmpts6euilsio4jzbewhdz4b3pwad7u5kokjwpbr2p4",
+  "external_link": "https://majrcreators.io",
+  "seller_fee_basis_points": 1000,
+  "fee_recipient": "0x37cB70b38f1dbFF132a6BDfFc919Bae276eDc85d"
+}

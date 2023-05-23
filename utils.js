@@ -1,4 +1,5 @@
 const { ethers } = require("ethers");
+const abis = require("./json/abis.json");
 
 exports.getInfuraProvider = (type) => {
   if (type === "mainnet") {
@@ -15,7 +16,8 @@ exports.getInfuraProvider = (type) => {
 exports.getAlchemyProvider = (type) => {
   if (type === "mainnet") {
     return new ethers.providers.JsonRpcProvider(
-      `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+      // `https://polygon-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`
+      "https://polygon-rpc.com/"
     );
   } else if (type === "testnet") {
     return new ethers.providers.JsonRpcProvider(
@@ -59,3 +61,15 @@ exports.toWei = (amount) => {
 exports.mainnetFactoryAddress = process.env.FACTORY_CONTRACT_ADDRESS_MAINNET;
 
 exports.testnetFactoryAddress = process.env.FACTORY_CONTRACT_ADDRESS_TESTNET;
+
+exports.getAbi = (type) => {
+  if (type === "factory") {
+    return abis.factory;
+  } else if (type === "membership") {
+    return abis.membershipNft;
+  } else {
+    console.error(
+      "Invalid contract type. Contract type must be 'factory' or 'membership'."
+    );
+  }
+};

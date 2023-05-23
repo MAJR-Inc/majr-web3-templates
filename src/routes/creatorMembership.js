@@ -2,40 +2,74 @@ const express = require("express");
 const router = express.Router();
 const creatorMembershipController = require("../controllers/creatorMembership");
 
-router.get("/abis", creatorMembershipController.getAbi);
+// http://localhost:3000/api/membership
+
+// Test Creator: 0x2cD3d676F4C53D645aa523cadBf00BA049f4E8eB
+
+// New Owner: 0x2e7b6533641b120e88bd9d97aa2d7fd0091cf32e
+
+// Test Membership Contract: 0x733e2d2C3B83604F4E629237689D9F4A26Ae250E
+
+// 0xb5bFa83A822aCd50D71b610cE0218013916f3495
+
+router.get(
+  "/defaultMetadata/:contractAddress",
+  creatorMembershipController.getDefaultContractMetadata
+);
+router.get(
+  "/defaultMetadata/:contractAddress/:tokenId",
+  creatorMembershipController.getDefaultTokenMetadata
+);
 
 router.get(
   "/allContracts",
   creatorMembershipController.getAllCreatorMembershipContracts
 );
 router.get(
-  "/contractsOfCreator",
+  "/contractsOfCreator/:creatorAddress",
   creatorMembershipController.getMembershipContractsOfCreator
+);
+router.get("/getMAJR", creatorMembershipController.getMAJR);
+router.get("/getDefaultBaseURI", creatorMembershipController.getDefaultBaseURI);
+router.post("/setMAJR", creatorMembershipController.setMAJR);
+router.post(
+  "/setDefaultNFTMetadataURI",
+  creatorMembershipController.setDefaultBaseURI
 );
 router.post(
   "/createContract",
   creatorMembershipController.createMembershipContract
 );
 
-router.get("/name", creatorMembershipController.name);
-router.get("/symbol", creatorMembershipController.symbol);
-router.get("/paused", creatorMembershipController.paused);
-router.get("/price", creatorMembershipController.price);
-router.get("/owner", creatorMembershipController.owner);
+router.get("/name/:contractAddress", creatorMembershipController.getName);
+router.get("/symbol/:contractAddress", creatorMembershipController.getSymbol);
+router.get("/paused/:contractAddress", creatorMembershipController.getPaused);
+router.get("/price/:contractAddress", creatorMembershipController.getPrice);
+router.get("/owner/:contractAddress", creatorMembershipController.getOwner);
 router.get(
-  "/splitAddressesAndAmounts",
+  "/getMAJRAddress/:contractAddress",
+  creatorMembershipController.getMAJRAddress
+);
+router.get(
+  "/splitAddressesAndAmounts/:contractAddress",
   creatorMembershipController.getSplitAddressesAndAmounts
 );
 router.get(
-  "/referralAddressesAndAmounts",
+  "/referralAddressesAndAmounts/:contractAddress",
   creatorMembershipController.getReferralAddressesAndAmounts
 );
-router.get("/exists", creatorMembershipController.exists);
-router.get("/tokenURI", creatorMembershipController.tokenURI);
-router.get("/baseURI", creatorMembershipController.baseURI);
 router.get(
-  "/contractMetadataURI",
-  creatorMembershipController.contractMetadataURI
+  "/exists/:contractAddress/:tokenId",
+  creatorMembershipController.getExists
+);
+router.get(
+  "/tokenURI/:contractAddress/:tokenId",
+  creatorMembershipController.getTokenURI
+);
+router.get("/baseURI/:contractAddress", creatorMembershipController.getBaseURI);
+router.get(
+  "/contractURI/:contractAddress",
+  creatorMembershipController.getContractURI
 );
 
 router.post("/pause", creatorMembershipController.pause);
@@ -52,6 +86,7 @@ router.post(
   "/renounceOwnership",
   creatorMembershipController.renounceOwnership
 );
+router.post("/setMAJRAddress", creatorMembershipController.setMAJRAddress);
 router.post("/mint", creatorMembershipController.mint);
 router.post("/mintWithReferrer", creatorMembershipController.mintWithReferrer);
 router.post("/burn", creatorMembershipController.burn);

@@ -12,7 +12,7 @@
     "format": "npx prettier --write src",
     "format:check": "npx prettier --check src",
     "test": "jest",
-    "dev-start": "nodemon src/index.js"
+    "dev-start": "nodemon src"
   },
   "keywords": [],
   "author": "",
