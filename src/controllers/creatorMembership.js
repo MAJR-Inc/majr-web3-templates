@@ -9,15 +9,15 @@ const {
   testnetFactoryAddress,
   mainnetFactoryAddress,
   getAbi,
-  getPolygontestnetGasPrice,
+  getPolygonMainnetGasPrice,
 } = require("../../utils");
 
-// This is an example of how to manually set the gas price for a transaction (`setPrice` method is used for this example)
+// This is an example of how to manually set the gas price for a transaction (`setPrice` method for setting a new mint fee is used for this example)
 async function manualGasPriceExample(req, res) {
   try {
     const { contractAddress, newPrice } = req.body;
 
-    const provider = getAlchemyProvider("testnet");
+    const provider = getAlchemyProvider("mainnet");
     const majrAdminWallet = getMAJRWallet(provider);
     const contract = getContract(
       contractAddress,
@@ -28,7 +28,7 @@ async function manualGasPriceExample(req, res) {
     const price = toWei(newPrice.toString());
 
     const tx = await contract.connect(majrAdminWallet).setPrice(price, {
-      gasPrice: (await getPolygontestnetGasPrice()) * 1000000000, // Multiplied by 1 billion to convert from gwei to wei
+      gasPrice: (await getPolygonMainnetGasPrice()) * 1000000000, // Multiplied by 1 billion to convert from gwei to wei
     });
     await tx.wait(1);
     return res.status(200).json(tx);
@@ -881,6 +881,108 @@ async function getTotalSupply(req, res) {
   }
 }
 
+async function getIsApprovedForAll(req, res) {
+  try {
+    const { contractAddress, ownerAddress } = req.params;
+
+    const provider = getAlchemyProvider("testnet");
+    const majrAdminWallet = getMAJRWallet(provider);
+    const contract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+    const isApprovedForAll = await contract.isApprovedForAll(
+      ownerAddress,
+      majrAdminWallet.address
+    );
+    return res.status(200).json(isApprovedForAll);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function setApprovalForAll(req, res) {
+  try {
+    const { contractAddress, approved } = req.body;
+
+    const provider = getAlchemyProvider("testnet");
+    const majrAdminWallet = getMAJRWallet(provider);
+    const contract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+
+    const tx = await contract.connect(majrAdminWallet).setApprovalForAll(
+      process.env.MAJR_ADMIN_PUBLIC_ADDRESS, // Operator address
+      approved
+    );
+    await tx.wait(1);
+    return res.status(200).json(tx);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
+async function transferFrom(req, res) {
+  try {
+    const { contractAddress, from, to, tokenId } = req.body;
+
+    const provider = getAlchemyProvider("testnet");
+    const majrAdminWallet = getMAJRWallet(provider);
+    const membershipContract = getContract(
+      contractAddress,
+      getAbi("membership"),
+      provider
+    );
+
+    const tokenIdExists = await membershipContract.exists(tokenId);
+
+    if (!tokenIdExists) {
+      return res.status(404).json({
+        title: "Not Found",
+        message:
+          "The NFT you are looking for has not been minted yet or has been burned by its owner. Please try again with a different token ID.",
+      });
+    }
+
+    const tokenOwner = await membershipContract.ownerOf(tokenId);
+
+    if (from !== tokenOwner) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message:
+          "The from address does not match the owner of the NFT. Please try again with the correct `from` address.",
+      });
+    }
+
+    const isApprovedForAll = await membershipContract.isApprovedForAll(
+      from,
+      majrAdminWallet.address
+    );
+
+    if (!isApprovedForAll) {
+      return res.status(400).json({
+        title: "Bad Request",
+        message:
+          "The MAJR Admin Wallet is not approved to transfer this NFT. Please approve the MAJR Admin Wallet to transfer this NFT and try again.",
+      });
+    }
+
+    const tx = await membershipContract
+      .connect(majrAdminWallet)
+      .transferFrom(from, to, tokenId);
+    await tx.wait(1);
+    return res.status(200).json(tx);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json("Failed! Unexpected server error");
+  }
+}
+
 module.exports = {
   manualGasPriceExample,
   getDefaultContractMetadata,
@@ -920,4 +1022,7 @@ module.exports = {
   getOwnerOf,
   getBalanceOf,
   getTotalSupply,
+  getIsApprovedForAll,
+  setApprovalForAll,
+  transferFrom,
 };

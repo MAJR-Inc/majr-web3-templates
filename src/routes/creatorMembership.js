@@ -37,6 +37,22 @@ router.get("/paused/:contractAddress", creatorMembershipController.getPaused);
 router.get("/price/:contractAddress", creatorMembershipController.getPrice);
 router.get("/owner/:contractAddress", creatorMembershipController.getOwner);
 router.get(
+  "/ownerOf/:contractAddress/:tokenId",
+  creatorMembershipController.getOwnerOf
+);
+router.get(
+  "/balanceOf/:contractAddress/:userAddress",
+  creatorMembershipController.getBalanceOf
+);
+router.get(
+  "/totalSupply/:contractAddress",
+  creatorMembershipController.getTotalSupply
+);
+router.get(
+  "/isApprovedForAll/:contractAddress/:ownerAddress",
+  creatorMembershipController.getIsApprovedForAll
+);
+router.get(
   "/getMAJRAddress/:contractAddress",
   creatorMembershipController.getMAJRAddress
 );
@@ -61,18 +77,6 @@ router.get(
   "/contractURI/:contractAddress",
   creatorMembershipController.getContractURI
 );
-router.get(
-  "/ownerOf/:contractAddress/:tokenId",
-  creatorMembershipController.getOwnerOf
-);
-router.get(
-  "/balanceOf/:contractAddress/:userAddress",
-  creatorMembershipController.getBalanceOf
-);
-router.get(
-  "/totalSupply/:contractAddress",
-  creatorMembershipController.getTotalSupply
-);
 
 router.post("/pause", creatorMembershipController.pause);
 router.post("/unpause", creatorMembershipController.unpause);
@@ -92,5 +96,10 @@ router.post("/setMAJRAddress", creatorMembershipController.setMAJRAddress);
 router.post("/mint", creatorMembershipController.mint);
 router.post("/mintWithReferrer", creatorMembershipController.mintWithReferrer);
 router.post("/burn", creatorMembershipController.burn);
+router.post(
+  "/setApprovalForAll",
+  creatorMembershipController.setApprovalForAll
+);
+router.post("/transferFrom", creatorMembershipController.transferFrom);
 
 module.exports = router;
